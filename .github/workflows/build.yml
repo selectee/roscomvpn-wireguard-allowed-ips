@@ -37,15 +37,18 @@ jobs:
       - name: Process and merge IP ranges
         run: node .github/workflows/scripts/process-ips.js
 
+      - name: Merge and optimize IPs
+        run: node .github/workflows/scripts/merge-ips.js
+
       - name: Commit and push changes
         run: |
           git config user.name "selectee"
           git config user.email "selectee@users.noreply.github.com"
           
-          if git diff --quiet AllowedIPs.txt; then
+          git add AllowedIPs.txt AllowedIPs-merged.txt
+          if git diff --cached --quiet; then
             echo "Нет изменений"
           else
-            git add AllowedIPs.txt
-            git commit -m "Update AllowedIPs from RoscomVPN GeoIP [automated]"
+            git commit -m "Update AllowedIPs [automated]"
             git push
           fi
