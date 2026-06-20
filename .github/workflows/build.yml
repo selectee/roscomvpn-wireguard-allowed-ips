@@ -43,4 +43,5 @@ jobs:
             echo "Нет изменений"
           else
             git add AllowedIPs.txt
-            git diff --cached --exit-code || (git commit -m "Update AllowedIPs from RoscomVPN GeoIP [automated]" && git push)
+            git commit -m "Update AllowedIPs from RoscomVPN GeoIP [automated]"
+            git push
