@@ -32,7 +32,7 @@ jobs:
         run: npm install cidr-tools
 
       - name: Process and merge IP ranges
-        run: node .github/scripts/process-ips.js
+        run: node .github/workflows/scripts/process-ips.js
 
       - name: Commit and push changes
         run: |
