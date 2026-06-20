@@ -31,41 +31,38 @@ jobs:
       - name: Install cidr-tools
         run: npm install cidr-tools
 
-      - name: Process and merge IP ranges
+      - name: Create processing script
         run: |
+          cat > process-ips.js << 'EOF'
           const fs = require('fs');
           const path = require('path');
           const { excludeCidr } = require('cidr-tools');
 
-          // Читаем все файлы из директории
           const textDir = 'roscomvpn-geoip/release/text';
           const files = fs.readdirSync(textDir);
           
           let allRanges = [];
           
-          // Конкатенируем все диапазоны (только IPv4)
           files.forEach(file => {
             const filePath = path.join(textDir, file);
             const content = fs.readFileSync(filePath, 'utf8')
               .split('\n')
               .map(line => line.trim())
-              .filter(line => line.length > 0)
-              // Исключаем IPv6 (содержат двоеточие)
-              .filter(line => !line.includes(':'));
+              .filter(line => line.length > 0 && !line.includes(':'));
             allRanges = allRanges.concat(content);
           });
           
           console.log(`Прочитано ${allRanges.length} IPv4 диапазонов`);
           
-          // Объединяем диапазоны (исключаем дубликаты и перекрытия)
           const merged = excludeCidr(allRanges, []);
           
-          // Записываем результат в файл
-          const output = merged.join(', ');
-          fs.writeFileSync('AllowedIPs.txt', output, 'utf8');
+          fs.writeFileSync('AllowedIPs.txt', merged.join(', '), 'utf8');
           
           console.log(`Записано ${merged.length} уникальных IPv4 диапазонов`);
-        shell: node {0}
+          EOF
+
+      - name: Process and merge IP ranges
+        run: node process-ips.js
 
       - name: Commit and push changes
         run: |
