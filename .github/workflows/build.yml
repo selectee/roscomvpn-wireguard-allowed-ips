@@ -1,0 +1,80 @@
+name: Update AllowedIPs from RoscomVPN GeoIP
+
+on:
+  schedule:
+    # Каждый день в 6:00 UTC
+    - cron: '0 6 * * *'
+  # Возможность запустить вручную
+  workflow_dispatch:
+
+jobs:
+  update-allowed-ips:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout current repository
+        uses: actions/checkout@v4
+
+      - name: Checkout RoscomVPN GeoIP repository
+        uses: actions/checkout@v4
+        with:
+          repository: hydraponique/roscomvpn-geoip
+          path: roscomvpn-geoip
+          sparse-checkout: |
+            release/text
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install cidr-tools
+        run: npm install cidr-tools
+
+      - name: Process and merge IP ranges
+        run: |
+          const fs = require('fs');
+          const path = require('path');
+          const { excludeCidr } = require('cidr-tools');
+
+          // Читаем все файлы из директории
+          const textDir = 'roscomvpn-geoip/release/text';
+          const files = fs.readdirSync(textDir);
+          
+          let allRanges = [];
+          
+          // Конкатенируем все диапазоны (только IPv4)
+          files.forEach(file => {
+            const filePath = path.join(textDir, file);
+            const content = fs.readFileSync(filePath, 'utf8')
+              .split('\n')
+              .map(line => line.trim())
+              .filter(line => line.length > 0)
+              // Исключаем IPv6 (содержат двоеточие)
+              .filter(line => !line.includes(':'));
+            allRanges = allRanges.concat(content);
+          });
+          
+          console.log(`Прочитано ${allRanges.length} IPv4 диапазонов`);
+          
+          // Объединяем диапазоны (исключаем дубликаты и перекрытия)
+          const merged = excludeCidr(allRanges, []);
+          
+          // Записываем результат в файл
+          const output = merged.join(', ');
+          fs.writeFileSync('AllowedIPs.txt', output, 'utf8');
+          
+          console.log(`Записано ${merged.length} уникальных IPv4 диапазонов`);
+        shell: node {0}
+
+      - name: Commit and push changes
+        run: |
+          git config user.name "selectee"
+          git config user.email "selectee@users.noreply.github.com"
+          
+          if git diff --quiet AllowedIPs.txt; then
+            echo "Нет изменений"
+          else
+            git add AllowedIPs.txt
+            git commit -m "Update AllowedIPs from RoscomVPN GeoIP [automated]"
+            git push
