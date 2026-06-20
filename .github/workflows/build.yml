@@ -31,38 +31,8 @@ jobs:
       - name: Install cidr-tools
         run: npm install cidr-tools
 
-      - name: Create processing script
-        run: |
-          cat > process-ips.js << 'EOF'
-          const fs = require('fs');
-          const path = require('path');
-          const { excludeCidr } = require('cidr-tools');
-
-          const textDir = 'roscomvpn-geoip/release/text';
-          const files = fs.readdirSync(textDir);
-          
-          let allRanges = [];
-          
-          files.forEach(file => {
-            const filePath = path.join(textDir, file);
-            const content = fs.readFileSync(filePath, 'utf8')
-              .split('\n')
-              .map(line => line.trim())
-              .filter(line => line.length > 0 && !line.includes(':'));
-            allRanges = allRanges.concat(content);
-          });
-          
-          console.log(`Прочитано ${allRanges.length} IPv4 диапазонов`);
-          
-          const merged = excludeCidr(allRanges, []);
-          
-          fs.writeFileSync('AllowedIPs.txt', merged.join(', '), 'utf8');
-          
-          console.log(`Записано ${merged.length} уникальных IPv4 диапазонов`);
-          EOF
-
       - name: Process and merge IP ranges
-        run: node process-ips.js
+        run: node .github/scripts/process-ips.js
 
       - name: Commit and push changes
         run: |
@@ -73,5 +43,4 @@ jobs:
             echo "Нет изменений"
           else
             git add AllowedIPs.txt
-            git commit -m "Update AllowedIPs from RoscomVPN GeoIP [automated]"
-            git push
+            git diff --cached --exit-code || (git commit -m "Update AllowedIPs from RoscomVPN GeoIP [automated]" && git push)
